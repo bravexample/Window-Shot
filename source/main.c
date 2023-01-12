@@ -38,47 +38,20 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     }
 
     RECT range;
-    if (!GetWindowRect(windowHWND, &range)) {
-        MessageBox(windowHWND, "GetWindowRect has failed", "Failed", MB_OK);
-        return -1;
-    }
+    GetWindowRect(windowHWND, &range)
 
     HDC windowHandle = GetWindowDC(windowHWND);
     HDC saveHandle = CreateCompatibleDC(windowHandle);
-    if (!saveHandle) {
-        MessageBox(windowHWND, "CreateCompatibleDC has failed", "Failed", MB_OK);
-        DeleteObject(saveHandle);
-        ReleaseDC(windowHWND, windowHandle);
-        return -1;
-    }
 
     int nWidth = range.right - range.left;
     int nHeight = range.bottom - range.top;
     HBITMAP bitmapHandle = CreateCompatibleBitmap(windowHandle, nWidth, nHeight);
-    if (!bitmapHandle) {
-        MessageBox(windowHWND, "CreateBitmap has failed", "Failed", MB_OK);
-        DeleteObject(bitmapHandle);
-        DeleteObject(saveHandle);
-        ReleaseDC(windowHWND, windowHandle);
-        return -1;
-    }
 
     HGDIOBJ selectBitmap = SelectObject(saveHandle, bitmapHandle);
-    if (!selectBitmap || selectBitmap == HGDI_ERROR) {
-        MessageBox(windowHWND, "SelectObject has failed", "Failed", MB_OK);
-        DeleteObject(bitmapHandle);
-        DeleteObject(saveHandle);
-        ReleaseDC(windowHWND, windowHandle);
-        return -1;
-    }
 
     if (!BitBlt(saveHandle, 0, 0, nWidth, nHeight, windowHandle, 0, 0, SRCCOPY)) {
         MessageBox(windowHWND, "BitBlt has failed", "Failed", MB_OK);
-        DeleteObject(selectBitmap);
-        DeleteObject(bitmapHandle);
-        DeleteObject(saveHandle);
-        ReleaseDC(windowHWND, windowHandle);
-        return -1;
+        goto done;
     }
 
     BITMAP bitmap;
@@ -122,7 +95,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     GlobalUnlock(hDIB);
     GlobalFree(hDIB);
     CloseHandle(hFile);
-    DeleteObject(bitmapHandle);
+done:
     DeleteObject(selectBitmap);
     DeleteObject(bitmapHandle);
     DeleteObject(saveHandle);
