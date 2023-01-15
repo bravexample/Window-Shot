@@ -1,105 +1,117 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include "windows.h"
 
+// This function is from https://github.com/lytsing/gbk-utf8/blob/master/utf8.c
 void utf8_to_gb(const char* src, char* dst, int len) {
-    int ret = 0;
-    WCHAR* strA;
-    int i= MultiByteToWideChar(CP_UTF8, 0, src, -1, NULL, 0);
-    if (i <= 0) {
-        MessageBox(0, "Failed", "Failed", MB_OK);
-        return;
-    }
-    strA = (WCHAR*)malloc(i * 2);
-    MultiByteToWideChar(CP_UTF8, 0, src, -1, strA, i);
-    i = WideCharToMultiByte(CP_ACP, 0, strA, -1, NULL, 0, NULL, NULL);
-    if (len >= i) {
-        ret = WideCharToMultiByte(CP_ACP, 0, strA, -1, dst, i, NULL, NULL);
-        dst[i] = 0;
-    }
-    if (ret <= 0) {
-        free(strA);
-        return;
-    }
+	int ret = 0;
+	WCHAR* strA;
+	int i= MultiByteToWideChar(CP_UTF8, 0, src, -1, NULL, 0);
+	if (i <= 0) {
+		printf("ERROR.\n");
+		return;
+	}
+	strA = (WCHAR*)malloc(i * 2);
+	MultiByteToWideChar(CP_UTF8, 0, src, -1, strA, i);
+	i = WideCharToMultiByte(CP_ACP, 0, strA, -1, NULL, 0, NULL, NULL);
+	if (len >= i) {
+		ret = WideCharToMultiByte(CP_ACP, 0, strA, -1, dst, i, NULL, NULL);
+		dst[i] = 0;
+	}
+	if (ret <= 0) {
+		free(strA);
+		return;
+	}
 
-    free( strA );
+	free( strA );
 }
 
-int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
-    char *utf8Title = "原神";
-    int len = sizeof("原神");
-    char *gbkTitle = (char *)malloc(len);
+int main(int argc, char **argv) {
+	printf("Input the name of window you want to get:\n");
+	char *title = (char *)malloc(1 << 30);
+	gets(title);
 
-    utf8_to_gb(utf8Title, gbkTitle, len);
-    
-    HWND windowHWND = FindWindow(0, gbkTitle);
-    if (!windowHWND) {
-        MessageBox(windowHWND, "FindWindow has failed", "Failed", MB_OK);
-        return -1;
-    }
+	int len = 0;
+	for (char *i = title; *i; i++) len++;
 
-    RECT range;
-    GetWindowRect(windowHWND, &range)
+	if (*title >> 7) {
+		char *gbkTitle = (char *)malloc(len + 1);
+		utf8_to_gb(title, gbkTitle, len);
+		char *temp = title;
+		title = gbkTitle;
+		free(temp);
+	}
 
-    HDC windowHandle = GetWindowDC(windowHWND);
-    HDC saveHandle = CreateCompatibleDC(windowHandle);
+	HWND windowHWND = FindWindow(0, title);
+	free(title);
+	if (!windowHWND) {
+		printf("FindWindow has failed\n");
+		return -1;
+	}
 
-    int nWidth = range.right - range.left;
-    int nHeight = range.bottom - range.top;
-    HBITMAP bitmapHandle = CreateCompatibleBitmap(windowHandle, nWidth, nHeight);
+	RECT range;
+	GetWindowRect(windowHWND, &range);
 
-    HGDIOBJ selectBitmap = SelectObject(saveHandle, bitmapHandle);
+	HDC windowHandle = GetWindowDC(windowHWND);
+	HDC saveHandle = CreateCompatibleDC(windowHandle);
 
-    if (!BitBlt(saveHandle, 0, 0, nWidth, nHeight, windowHandle, 0, 0, SRCCOPY)) {
-        MessageBox(windowHWND, "BitBlt has failed", "Failed", MB_OK);
-        goto done;
-    }
+	int nWidth = range.right - range.left;
+	int nHeight = range.bottom - range.top;
+	HBITMAP bitmapHandle = CreateCompatibleBitmap(windowHandle, nWidth, nHeight);
 
-    BITMAP bitmap;
-    GetObject(bitmapHandle, sizeof(BITMAP), &bitmap);
+	HGDIOBJ selectBitmap = SelectObject(saveHandle, bitmapHandle);
 
-    BITMAPFILEHEADER   bmfHeader;
-    BITMAPINFOHEADER   bi;
+	if (!BitBlt(saveHandle, 0, 0, nWidth, nHeight, windowHandle, 0, 0, SRCCOPY)) {
+		printf("BitBlt has failed");
+		goto done;
+	}
 
-    bi.biSize = sizeof(BITMAPINFOHEADER);
-    bi.biWidth = bitmap.bmWidth;
-    bi.biHeight = bitmap.bmHeight;
-    bi.biPlanes = 1;
-    bi.biBitCount = 32;
-    bi.biCompression = BI_RGB;
-    bi.biSizeImage = 0;
-    bi.biXPelsPerMeter = 0;
-    bi.biYPelsPerMeter = 0;
-    bi.biClrUsed = 0;
-    bi.biClrImportant = 0;
+	BITMAP bitmap;
+	GetObject(bitmapHandle, sizeof(BITMAP), &bitmap);
 
-    DWORD dwBmpSize = ((bitmap.bmWidth * bi.biBitCount + 31) / 32) * 4 * bitmap.bmHeight;
+	BITMAPFILEHEADER   bmfHeader;
+	BITMAPINFOHEADER   bi;
 
-    HANDLE hDIB = hDIB = GlobalAlloc(GHND, dwBmpSize);
-    char *lpbitmap = (char *)GlobalLock(hDIB);
+	bi.biSize = sizeof(BITMAPINFOHEADER);
+	bi.biWidth = bitmap.bmWidth;
+	bi.biHeight = bitmap.bmHeight;
+	bi.biPlanes = 1;
+	bi.biBitCount = 32;
+	bi.biCompression = BI_RGB;
+	bi.biSizeImage = 0;
+	bi.biXPelsPerMeter = 0;
+	bi.biYPelsPerMeter = 0;
+	bi.biClrUsed = 0;
+	bi.biClrImportant = 0;
 
-    GetDIBits(windowHandle, bitmapHandle, 0, (UINT)bitmap.bmHeight, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+	DWORD dwBmpSize = ((bitmap.bmWidth * bi.biBitCount + 31) / 32) * 4 * bitmap.bmHeight;
 
-    HANDLE hFile = CreateFile("test.bmp", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    
-    DWORD dwSizeofDIB = dwBmpSize + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+	HANDLE hDIB = hDIB = GlobalAlloc(GHND, dwBmpSize);
+	char *lpbitmap = (char *)GlobalLock(hDIB);
 
-    bmfHeader.bfOffBits = (DWORD)sizeof(BITMAPFILEHEADER) + (DWORD)sizeof(BITMAPINFOHEADER);
-    bmfHeader.bfSize = dwSizeofDIB;
-    bmfHeader.bfType = 0x4D42;
+	GetDIBits(windowHandle, bitmapHandle, 0, (UINT)bitmap.bmHeight, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
-    DWORD dwBytesWritten = 0;
-    WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
-    WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
-    WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, NULL);
+	HANDLE hFile = CreateFile("output.bmp", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	
+	DWORD dwSizeofDIB = dwBmpSize + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 
-    GlobalUnlock(hDIB);
-    GlobalFree(hDIB);
-    CloseHandle(hFile);
+	bmfHeader.bfOffBits = (DWORD)sizeof(BITMAPFILEHEADER) + (DWORD)sizeof(BITMAPINFOHEADER);
+	bmfHeader.bfSize = dwSizeofDIB;
+	bmfHeader.bfType = 0x4D42;
+
+	DWORD dwBytesWritten = 0;
+	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
+	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
+	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, NULL);
+
+	GlobalUnlock(hDIB);
+	GlobalFree(hDIB);
+	CloseHandle(hFile);
 done:
-    DeleteObject(selectBitmap);
-    DeleteObject(bitmapHandle);
-    DeleteObject(saveHandle);
-    ReleaseDC(windowHWND, windowHandle);
-    
-    return 0;
+	DeleteObject(selectBitmap);
+	DeleteObject(bitmapHandle);
+	DeleteObject(saveHandle);
+	ReleaseDC(windowHWND, windowHandle);
+	
+	return 0;
 }
