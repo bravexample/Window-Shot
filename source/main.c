@@ -26,6 +26,7 @@ void utf8_to_gb(const char* src, char* dst, int len) {
 	free( strA );
 }
 
+// Some code is from https://learn.microsoft.com/en-us/windows/win32/gdi/capturing-an-image
 int main(int argc, char **argv) {
 	printf("Input the name of window you want to get:\n");
 	char *title = (char *)malloc(1 << 30);
